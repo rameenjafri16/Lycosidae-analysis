@@ -2,9 +2,13 @@
 ##  
 ## Assignment01 -- BINF6210 
 ## 
-## Rameen Jafri 
-##
+## Lead author: Rameen Jafri 
+## 
+## Editor: Liona Vu 
+## 
 ## 2025-10-12
+## 
+## Last updated: 2025-11-12
 ##
 ## ===================================== ##
 ##  Step 0: Dependencies                 ##
@@ -15,7 +19,7 @@ library(janitor)
 library (ggplot2)
 library(scales)
 library(viridis)
-library(ggpubr) #Will need for statistical testing
+library(ggpubr) #Will need for statistical testing 
 
 # ===================================== #
 #  Step 1: read + basic data prep       #
@@ -97,7 +101,7 @@ lyco_cleaned %>%
   arrange(desc(count))
 
 # Base R hist to inspect exact length counts
-#--# LV Use ggplot instead of base R to plot histogram
+#--#Use ggplot instead of base R to plot histogram
 ggplot(lyco_cleaned, aes(x =nuc_scrubbed_count)) +
   geom_histogram(fill = "pink", colour = "black") +
   labs(x = "Sequence length (bp)", y = "Frequency", title = "Distribution of sequence length markers") +
@@ -154,7 +158,7 @@ summary_depo <- function(dataframe, length) { dataframe %>%
     mutate(prop = n_records / sum(n_records)) %>% 
     arrange(desc(n_records))}
 
-##--## LV Calling on summary_depo function to apply on short sequences
+##--## Calling on summary_depo function to apply on short sequences
 short_by_depo <- summary_depo(lyco_short, "Short")
 head(short_by_depo)
 
@@ -208,7 +212,7 @@ top_5_markers <- lyco_cleaned %>%
 marker_plot_data <- lyco_cleaned %>%
   filter(marker_code %in% top_5_markers)
 
-##--## LV Can add a statistical test here to test hypothesis
+##--## Can add a statistical test here to test hypothesis
 #The hypothesis: If dataset represents standardized barcoding practices, then majority of depositor submissions should cluster tightly around the expected COI barcode length (~660 bp)
 #Plotting qqplot to determine distribution
 qqnorm(marker_plot_data$nuc_scrubbed_count) 
@@ -229,8 +233,6 @@ ggplot(marker_plot_data, aes(x = marker_code, y = nuc_scrubbed_count, fill = mar
     legend.position = "none",
     axis.text.x = element_text(angle = 45, hjust = 1))
 
-##--## LV p-value is p<2.2e-16, so statistically should reject null hypothesis
-
 ## ===================================== ##
 ##  Graph 3: Heatmap                     
 
@@ -244,8 +246,24 @@ summary(lyco_coi$nuc_scrubbed_count)
 table(cut(lyco_coi$nuc_scrubbed_count, 
           breaks = c(seq(from = 600, to = 650, by = 10), 655, seq(from = 660, to = 700, by = 10))))
 
-breaks <- c(0, 500, 600, 650, 700, 800, Inf)
-labels <- c("0–500","500–600","600–650", "650–700","700–800","800+")
+#Checking the min and max values of nuc_scrubbed_count before making our breaks
+min(lyco_coi$nuc_scrubbed_count) #172
+max(lyco_coi$nuc_scrubbed_count) #1552
+
+#Generating break values for our heatmap, quantile method would be more dynamic, unique is needed here, else there will be duplicate quantile values and will cause an error when plotting heatmap
+breaks <- unique(quantile(lyco_coi$nuc_scrubbed_count, probs = seq(from= 0, to = 1, 0.1), Inf))
+
+#Use a for loop to generate the labels needed for heat map
+#Create empty vector to be added to
+labels <-c() 
+for (i in seq_along(breaks)) {
+  start <- breaks[i]
+  end <- breaks[i+1]
+  labels[i] <- paste(start, "-", end)
+}
+
+#Removes the last NA value in the vector
+labels <- labels[-length(labels)]
 
 # Identify the top 4 depositories by total number of COI-5P records. These will be highlighted as individual rows; all others grouped as "Other".
 top4 <- lyco_coi %>%
@@ -261,7 +279,8 @@ heatmap_df <- lyco_coi %>%
   summarise(n = n(), .groups = "drop") %>%
   group_by(inst_grouped) %>%
   mutate(prop = n / sum(n)) %>%
-  ungroup()
+  ungroup() %>%
+  na.omit() ## Added to filter any NA values
 
 # Plot the normalized data as a heatmap.
 ggplot(heatmap_df, aes(x = length_bin, y = inst_grouped, fill = prop)) +
